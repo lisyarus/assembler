@@ -5,7 +5,7 @@ section .data
     unknown_flag_msg db "Unknown flag 'x'", 0
     unknown_flag_pos equ 14
     decimal_number_expected_msg db "Expected a decimal number, got 'x'", 0
-    decimal_number_expected_pos equ 24
+    decimal_number_expected_pos equ 32
     hex_number_expected_msg db "Expected a hexadecimal number, got 'x'", 0
     hex_number_expected_pos equ 36
     big_length_msg db "The length must not exceed 50", 0
@@ -19,7 +19,7 @@ section .data
     flag_minus equ 0xffff0000
 
 section .text
-global main
+global _main
 
 unknown_flag:
     mov [unknown_flag_msg + unknown_flag_pos], dl
@@ -54,7 +54,7 @@ long_argument:
     add esp, 4
     ret
 
-main:
+_main:
 
     mov ecx, [esp + 4]
     cmp ecx, 3
@@ -171,10 +171,9 @@ arguments_count_good:
     ; [esp + 4] flags
 
     start_read_number:
-
-        xor ecx, ecx ; the number's length
         push 32
         call _malloc
+        xor ecx, ecx ; the number's length
         
         mov dword [esp], 0 ; will be true if the number starts from a minus
         ; edi is argv
