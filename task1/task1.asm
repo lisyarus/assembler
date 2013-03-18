@@ -1,4 +1,4 @@
-extern puts, malloc, free, printf
+extern puts, putchar, malloc, free, printf
 
 section .data
     usage_msg db "Usage: task1 format number", 0
@@ -12,6 +12,7 @@ section .data
     long_argument_msg db "Argument too long: the number must not exceed 128 bits", 0
 
     minus db "-", 0
+
     newline db 10, 0
 
     int_format db "%i", 10, 0
@@ -19,8 +20,8 @@ section .data
 
     flag_space equ 0xff
     flag_plus equ 0xffff
-    flag_minus equ 0xff0000
-    flag_zero equ 0xffff0000
+    flag_zero equ 0xff0000
+    flag_minus equ 0xffff0000
 
 section .text
 global main
@@ -58,6 +59,55 @@ long_argument:
     add esp, 4
     ret
 
+debug_print:
+
+    ; DEBUG BEGIN
+    ; print the number in hex
+
+        push ecx
+        push edi
+        
+        mov eax, [esp + 20]
+        test eax, eax
+        jz debug_start_print_hex
+
+        push ecx
+        push minus
+        call printf
+        add esp, 4
+        pop ecx
+
+        debug_start_print_hex:
+        
+        mov esi, edi
+        sub esi, ecx
+        
+        xor edx, edx
+        debug_print_hex:
+            mov dl, [esi]
+            push ecx
+            push edx
+            push hex_format
+            call printf
+            add esp, 8
+            pop ecx
+            inc esi
+            cmp esi, edi
+            jl debug_print_hex
+
+        push newline
+        call puts
+        add esp, 4
+
+        pop edi
+        pop ecx
+
+        ret
+
+    ; DEBUG END
+
+
+
 main:
 
     mov ecx, [esp + 4]
@@ -87,10 +137,10 @@ arguments_count_good:
         je set_flag_space
         cmp dl, '+'
         je set_flag_plus
-        cmp dl, '-'
-        je set_flag_minus
         cmp dl, '0'
         je set_flag_zero
+        cmp dl, '-'
+        je set_flag_minus
 
         test dl, dl
         jz read_flags_proceed_read_length
@@ -115,12 +165,12 @@ arguments_count_good:
             or eax, flag_plus
             jmp read_flags
 
-        set_flag_minus:
-            or eax, flag_minus
-            jmp read_flags
-
         set_flag_zero:
             or eax, flag_zero
+            jmp read_flags
+
+        set_flag_minus:
+            or eax, flag_minus
             jmp read_flags
 
         read_flags_unknown_flag:
@@ -207,11 +257,12 @@ arguments_count_good:
         ; edi is argv
         mov esi, [edi + 8]; esi = argv[2]
         mov edi, eax ; edi is the result of malloc
+        push edi ; for later use
         mov dl, [esi]
         cmp dl, '-'
         jne read_number
 
-        mov dword [esp], 0xffffffff
+        mov dword [esp + 4], 0xffffffff
         inc esi
 
     read_number:
@@ -261,12 +312,12 @@ arguments_count_good:
 
         read_number_bad_digit:
         call hex_number_expected
-        add esp, 12
+        add esp, 16
         ret
 
         read_number_long_argument:
         call long_argument
-        add esp, 12
+        add esp, 16
         ret
 
         read_number_end_check:
@@ -276,7 +327,7 @@ arguments_count_good:
         jmp read_number
 
     end_read_number:
-       
+              
         cmp ecx, 32
         jl no_need_to_negate
 
@@ -284,9 +335,9 @@ arguments_count_good:
         test dl, 8
         jz no_need_to_negate
 
-        mov eax, [esp]
+        mov eax, [esp + 4]
         not eax
-        mov [esp], eax
+        mov [esp + 4], eax
 
         ; negate the value
         ; -x = (not x) + 1
@@ -315,43 +366,225 @@ arguments_count_good:
 
     no_need_to_negate:
 
-    ; DEBUG BEGIN
-    ; print the number in hex
+    push ecx
+    push 64
+    call malloc
+    add esp, 4
+    mov ecx, [esp]
+    
+    mov [esp], eax ; result string
 
-        mov eax, [esp]
-        test eax, eax
-        jz debug_start_print_hex
+    mov byte [eax + 63], 0 ; result string end
+    lea ebx, [eax + 62]
 
-        push ecx
-        push minus
-        call printf
-        add esp, 4
-        pop ecx
+    ; stack by now:
+    ; [esp] result string addr
+    ; [esp + 4] hex number addr
+    ; [esp + 8] positive/negative
+    ; [esp + 12] length
+    ; [esp + 16] flag set
+    ; [esp + 20] return address
 
-        debug_start_print_hex:
-        
+    ; registers:
+    ; ecx = (hex number length)
+    ; edi = (hex number) + ecx {after the lowest digit}
+    ; ebx = {resulting string lowest digit}
+
+    convert:
+
+        ; call debug_print
+
         mov esi, edi
         sub esi, ecx
-        
         xor edx, edx
-        debug_print_hex:
-            mov dl, [esi]
-            push ecx
-            push edx
-            push hex_format
-            call printf
-            add esp, 8
-            pop ecx
-            inc esi
+        xor eax, eax
+
+        convert_check:
             cmp esi, edi
-            jl debug_print_hex
+            je convert_end
+            mov dl, [esi]
+            test dl, dl
+            jnz convert_div
+            inc esi
+            jmp convert_check
 
-        push newline
-        call puts
-        add esp, 4
+        convert_div:
+            cmp esi, edi
+            jae convert_div_end
+            shl eax, 4
+            mov dl, [esi]
+            add eax, edx
+            xor edx, edx
+            push ecx
+            mov cx, 10
+            div cx
+            pop ecx
+            mov [esi], al
+            mov eax, edx
+            inc esi
+            jmp convert_div
 
+        convert_div_end
+
+        add al, '0'
+        mov [ebx], al
+        dec ebx
+
+        jmp convert
+
+    convert_end:
+
+    inc ebx
+    ; check for zero
+    mov dl, [ebx]
+    test dl, dl
+    jnz check_not_zero
+    dec ebx
+    mov byte [ebx], '0'
+    mov dword [esp + 8], 0 ; zero is positive
+
+    check_not_zero:
+
+    ; DEBUG
+    push ebx
+    call puts
+    add esp, 4
+    ; DEBUG
+
+    pop edi
+    call free
+    mov [esp], edi
+
+    lea ecx, [edi + 63]
+    sub ecx, ebx
+
+    ; [esp + 4] sign
+    ; [esp + 8] output length
+    ; [esp + 12] flag set
+
+    mov eax, [esp + 4]
+    test eax, eax
+    jnz add_one_to_length
+
+    mov eax, [esp + 12]
+    and eax, flag_plus
+    test eax, eax
+    jnz add_one_to_length
+
+    jmp not_add_one_to_length
+
+    add_one_to_length:
+    inc ecx
+
+    not_add_one_to_length:
+
+    ; DEBUG BEGIN
+    push ecx
+    push int_format
+    call printf
+    add esp, 4
+    pop ecx
     ; DEBUG END
 
-    add esp, 12
+    mov eax, [esp + 12]
+    and eax, flag_minus
+    cmp eax, flag_minus
+    jne align_right
 
+    ; align left
+    jmp no_align
+   
+    align_right:
+
+    mov eax, [esp + 12]
+    and eax, flag_zero
+    cmp eax, flag_zero
+    jne align_spaces
+
+    ; align zeroes
+    mov edi, [esp + 8]
+    sub edi, ecx
+    jl no_align
+    call put_sign
+    push edi
+    push dword '0'
+    call put_filler
+    mov [esp], ebx
+    call puts
+    add esp, 8
+    jmp end
+
+    align_spaces:
+
+    mov edi, [esp + 8]
+    sub edi, ecx
+    jl no_align
+    push edi
+    push dword ' '
+    call put_filler
+    add esp, 8
+    call put_sign
+    push ebx
+    call puts
+    add esp, 4
+    jmp end
+
+    no_align:
+    call put_sign
+    push ebx
+    call puts
+    add esp, 4
+
+    end:
+
+    call free
+    add esp, 16
+    ret
+
+; [esp + 8] sign
+; [esp + 16] flags
+put_sign:
+    mov eax, [esp + 8]
+    test eax, eax
+    jz put_sign_positive
+
+    push dword '-'
+    jmp put_sign_do
+
+    put_sign_positive:
+
+    mov eax, [esp + 16]
+    and eax, flag_plus
+    cmp eax, flag_plus
+    je put_sign_plus
+    cmp eax, flag_space
+    je put_sign_space
+
+    ret
+
+    put_sign_plus:
+    push dword '+'
+    jmp put_sign_do
+
+    put_sign_space:
+    push dword ' '
+
+    put_sign_do:
+    call putchar
+    add esp, 4
+    ret
+
+; [esp + 4] filler
+; [esp + 8] count
+put_filler:
+    mov ecx, [esp + 8]
+    jz put_filler_end
+    dec ecx
+    mov [esp + 8], ecx
+    push dword [esp + 4]
+    call putchar
+    add esp, 4
+    mov ecx, [esp + 8]
+    loop put_filler, ecx
+    put_filler_end:
     ret
