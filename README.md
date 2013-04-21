@@ -1,1 +1,1 @@
-Homework on x86 assempler course
+Lectures on x86 assempler course
