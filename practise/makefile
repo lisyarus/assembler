@@ -4,3 +4,7 @@ arctg-test: arctg-test.cpp arctg
 
 arctg: arctg.asm
 	yasm arctg.asm -o build/arctg.o -f elf32
+
+hello-world-x64: hello-world-x64.asm
+	yasm hello-world-x64.asm -o build/hello-world-x64.o -f elf64
+	gcc build/hello-world-x64.o -o build/hello-world-x64
