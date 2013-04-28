@@ -1,4 +1,5 @@
 section .data
+    initialized db 0
     align 16
     cos_m resd 64
     cos_mt resd 64
@@ -13,6 +14,13 @@ section .text
 global _fdct, _idct
 
 prepare_cos_matrix:
+    mov al, [initialized]
+    test al, al
+    jnz p_end
+    
+    mov eax, 1
+    mov [initialized], eax
+
     mov esi, cos_m ; forward matrix
     mov ecx, 0 ; row index
     pcm_loop_row:
@@ -54,6 +62,8 @@ prepare_cos_matrix:
     inc ecx
     cmp ecx, 8
     jb pcm_loop_row
+    
+    p_end:
     ret
 
 ; void fdct (float * src, float * dst, int count)
@@ -63,8 +73,6 @@ _fdct:
     f_loop0:
     
     mov eax, [esp + 12] ; count
-    test eax, eax
-    jz f_end
     dec eax
     mov [esp + 12], eax
     
@@ -142,9 +150,9 @@ _fdct:
     cmp ecx, 8
     jb f_loop2_row
     
-    jmp f_loop0
-    
-    f_end:
+    mov eax, [esp + 12]
+    test eax, eax
+    jnz f_loop0
     
     ret
 
@@ -155,8 +163,6 @@ _idct:
     i_loop0:
     
     mov eax, [esp + 12] ; count
-    test eax, eax
-    jz i_end
     dec eax
     mov [esp + 12], eax
     
@@ -233,8 +239,8 @@ _idct:
     cmp ecx, 8
     jb i_loop2_row
     
-    jmp i_loop0
-    
-    i_end:
+    mov eax, [esp + 12]
+    test eax, eax
+    jnz i_loop0
     
     ret
