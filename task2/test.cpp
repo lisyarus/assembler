@@ -45,8 +45,8 @@ void test_dct8_impl (float * src, float * dst, int count, direction_t dir)
             for (int x = 0; x < 8; ++x)
             for (int y = 0; y < 8; ++y)
                 *c += src[m * 8 * 8 + x * 8 + y]
-                    * ((dir == FORWARD) ?
-                        ccos(x, i) * ccos(y, j) * coef(i) * coef(j)
+                    * ((dir == FORWARD)
+                    ?   ccos(x, i) * ccos(y, j) * coef(i) * coef(j)
                     :   ccos(i, x) * ccos(j, y) * coef(x) * coef(y)
                     );
         }
@@ -84,7 +84,7 @@ int main ( )
 {
     auto random = std::bind(std::uniform_real_distribution<float>(-1.0, 1.0), std::default_random_engine());
     
-    std::cout << std::setfill('0') << std::setprecision(3) << std::fixed;
+    std::cout << std::setfill(' ') << std::setprecision(2) << std::fixed;
     
     int matrices = 1;
     std::vector<float> src(matrices * 8 * 8); 
@@ -100,7 +100,7 @@ int main ( )
             for (int i = 0; i < 8; ++i)
             {
                 for (int j = 0; j < 8; ++j)
-                    std::cout << v[m * 8 * 8 + i * 8 + j] << ' ';
+                    std::cout << std::setw(5) << v[m * 8 * 8 + i * 8 + j] << ' ';
                 std::cout << std::endl;
             }
             std::cout << std::endl;
