@@ -7,8 +7,8 @@
 extern "C"
 {
     
-    void dct8 (float * source, float * destination);
-    void undct8 (float * source, float * destination);
+    void dct8 (float * source, float * destination, int count);
+    void undct8 (float * source, float * destination, int count);
     
 }
 
