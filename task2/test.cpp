@@ -126,6 +126,10 @@ int main ( )
     print(src);
     
     fdct(src, dst, matrices);
+    
+    std::cout << "Middle: " << std::endl << std::endl;
+    print(dst);
+    
     idct(dst, src, matrices);
     
     std::cout << "After: " << std::endl << std::endl;
