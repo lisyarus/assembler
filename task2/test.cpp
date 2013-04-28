@@ -4,12 +4,13 @@
 #include <vector>
 #include <iomanip>
 #include <cmath>
+#include <memory>
 
 extern "C"
 {
     
-    void dct8 (float * source, float * destination, int count);
-    void undct8 (float * source, float * destination, int count);
+    void fdct (float * source, float * destination, int count);
+    void idct (float * source, float * destination, int count);
     
 }
 
@@ -21,34 +22,34 @@ float coef (int i)
 float ccos (int a, int b)
 {
     static const float pi8 = 3.141592653589793 / 8; 
-    return cos(pi8 * (a + 0.5) * b);
+    return cos(pi8 * (b + 0.5) * a) * coef(a);
 }
 
-enum direction_t {FORWARD, REVERSE};
+enum direction_t {FORWARD, INVERSE};
 
 void test_dct8_impl (float * src, float * dst, int count, direction_t dir)
 {
     
     for (int m = 0; m < count; ++m)
-    {
+    {        
         for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
         {
             float * c = dst + (m * 8 * 8 + i * 8 + j);
-            *c = 0.0;
-        }
-        
-        for (int i = 0; i < 8; ++i)
-        for (int j = 0; j < 8; ++j)
-        {
-            float * c = dst + (m * 8 * 8 + i * 8 + j);
+            *c = 0;
             for (int x = 0; x < 8; ++x)
-            for (int y = 0; y < 8; ++y)
-                *c += src[m * 8 * 8 + x * 8 + y]
-                    * ((dir == FORWARD)
-                    ?   ccos(x, i) * ccos(y, j) * coef(i) * coef(j)
-                    :   ccos(i, x) * ccos(j, y) * coef(x) * coef(y)
-                    );
+            {
+                for (int y = 0; y < 8; ++y)
+                    *c += src[m * 8 * 8 + x * 8 + y]
+                        * ((dir == FORWARD)
+                        ?   ccos(i, x) * ccos(j, y)
+                        :   ccos(x, i) * ccos(y, j)
+                        );
+            }
+            if (dir == FORWARD)
+                *c /= 8.0;
+            else
+                *c *= 8.0;
         }
     }
 }
@@ -58,9 +59,9 @@ void test_dct8 (float * src, float * dst, int count)
     test_dct8_impl(src, dst, count, FORWARD);
 }
 
-void test_undct8 (float * src, float * dst, int count)
+void test_idct8 (float * src, float * dst, int count)
 {
-    test_dct8_impl(src, dst, count, REVERSE);
+    test_dct8_impl(src, dst, count, INVERSE);
 }
 
 /*
@@ -82,20 +83,34 @@ Sample data;
 
 int main ( )
 {
-    auto random = std::bind(std::uniform_real_distribution<float>(-1.0, 1.0), std::default_random_engine());
+    
+    auto random = std::bind(std::uniform_real_distribution<float>(-9.9, 9.9), std::default_random_engine());
     
     std::cout << std::setfill(' ') << std::setprecision(2) << std::fixed;
     
-    int matrices = 1;
-    std::vector<float> src(matrices * 8 * 8); 
-    std::vector<float> dst(matrices * 8 * 8);
+    int matrices = 4;
     
-    for (int i = 0; i < src.size(); ++i)
+    size_t size = matrices * 8 * 8;
+    
+    float * src_ = new float[size + 16];
+    float * dst_ = new float[size + 16];
+    
+    auto align = [] (float * ptr) -> float *
+    {
+        if (((unsigned int)ptr & 0x10) != (unsigned int)ptr)
+            ptr = (float *)(((unsigned int)ptr | 0xf) + 1);
+        return ptr;
+    };
+    
+    float * src = align(src_);
+    float * dst = align(dst_);
+    
+    for (int i = 0; i < matrices * 8 * 8; ++i)
         src[i] = random();
         
-    auto print = [] (std::vector<float> v) -> void
+    auto print = [matrices] (float * v) -> void
     {
-        for (int m = 0; m < v.size() / 64; ++m)
+        for (int m = 0; m < matrices; ++m)
         {
             for (int i = 0; i < 8; ++i)
             {
@@ -107,14 +122,15 @@ int main ( )
         }
     };
     
+    std::cout << "Before: " << std::endl << std::endl;
     print(src);
     
-    test_dct8(src.data(), dst.data(), matrices);
-    std::cout << "After DCT8: " << std::endl << std::endl;
-    print(dst);
+    fdct(src, dst, matrices);
+    idct(dst, src, matrices);
     
-    test_undct8(dst.data(), src.data(), matrices);
-    std::cout << "After UnDCT8: " << std::endl << std::endl;
+    std::cout << "After: " << std::endl << std::endl;
     print(src);
     
+    delete [] src_;
+    delete [] dst_;
 }
