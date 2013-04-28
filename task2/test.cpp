@@ -18,9 +18,16 @@ float coef (int i)
     return (i == 0) ? sqrt(0.125) : 0.5;
 }
 
-void test_dct8 (float * src, float * dst, int count)
+float ccos (int a, int b)
 {
-    const float pi8 = 3.141592653589793 / 8; 
+    static const float pi8 = 3.141592653589793 / 8; 
+    return cos(pi8 * (a + 0.5) * b);
+}
+
+enum direction_t {FORWARD, REVERSE};
+
+void test_dct8_impl (float * src, float * dst, int count, direction_t dir)
+{
     
     for (int m = 0; m < count; ++m)
     {
@@ -29,36 +36,31 @@ void test_dct8 (float * src, float * dst, int count)
         {
             float * c = dst + (m * 8 * 8 + i * 8 + j);
             *c = 0.0;
+        }
+        
+        for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j)
+        {
+            float * c = dst + (m * 8 * 8 + i * 8 + j);
             for (int x = 0; x < 8; ++x)
             for (int y = 0; y < 8; ++y)
                 *c += src[m * 8 * 8 + x * 8 + y]
-                    * cos(pi8 * (x + 0.5) * i)
-                    * cos(pi8 * (y + 0.5) * j);
-            *c *= coef(i);
-            *c *= coef(j);
+                    * ((dir == FORWARD) ?
+                        ccos(x, i) * ccos(y, j) * coef(i) * coef(j)
+                    :   ccos(i, x) * ccos(j, y) * coef(x) * coef(y)
+                    );
         }
     }
 }
 
+void test_dct8 (float * src, float * dst, int count)
+{
+    test_dct8_impl(src, dst, count, FORWARD);
+}
+
 void test_undct8 (float * src, float * dst, int count)
 {
-    const float pi8 = 3.141592653589793 / 8; 
-    
-    for (int m = 0; m < count; ++m)
-    {
-        for (int x = 0; x < 8; ++x)
-        for (int y = 0; y < 8; ++y)
-        {
-            float * c = dst + (m * 8 * 8 + x * 8 + y);
-            *c = 0.0;
-            for (int i = 0; i < 8; ++i)
-            for (int j = 0; j < 8; ++j)
-                *c += src[m * 8 * 8 + i * 8 + j]
-                    * cos(pi8 * (x + 0.5) * i)
-                    * cos(pi8 * (y + 0.5) * j)
-                    * coef(i) * coef(j);
-        }
-    }
+    test_dct8_impl(src, dst, count, REVERSE);
 }
 
 /*
@@ -80,7 +82,7 @@ Sample data;
 
 int main ( )
 {
-    auto random = std::bind(std::uniform_real_distribution<float>(0.0, 1.0), std::default_random_engine());
+    auto random = std::bind(std::uniform_real_distribution<float>(-1.0, 1.0), std::default_random_engine());
     
     std::cout << std::setfill('0') << std::setprecision(3) << std::fixed;
     
