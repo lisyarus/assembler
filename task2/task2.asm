@@ -3,8 +3,6 @@ section .data
     cos_m resd 64
     cos_mt resd 64
     temp resd 64
-    
-    time dd 0
 
 section .rodata
     eight dd 8.0
